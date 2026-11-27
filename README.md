@@ -166,7 +166,7 @@ Generated reports and raw results are ignored by Git to avoid committing bulky o
 
 ## GitHub Actions CI/CD
 
-Workflow: [`.github/workflows/pytest-api.yml`](.github/workflows/pytest-api.yml)
+Workflow: [`.github/workflows/pytest-api.yml`](.github/workflows/pytest.yml)
 
 **Triggers:** each push to `main` and manual `workflow_dispatch`.
 

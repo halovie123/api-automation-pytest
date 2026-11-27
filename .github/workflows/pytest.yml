@@ -1,16 +1,13 @@
 
-name: Python API Tests
+name: API pytest
 
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 permissions:
   contents: read
 
 jobs:
-  api-tests:
+  test:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,13 +17,13 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: "3.12"
           cache: pip
 
-      - name: Setup Node.js for Allure
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: "24"
 
       - name: Install dependencies
         run: |
@@ -34,11 +31,10 @@ jobs:
           python -m pip install -r requirements.txt
           npm install -g allure
 
-      - name: Run pytest API tests
+      - name: Run pytest
         env:
           RB_USERNAME: admin
           RB_PASSWORD: ${{ secrets.RB_PASSWORD }}
-        
         run: |
           mkdir -p reports
           python -m pytest -v \
@@ -48,19 +44,18 @@ jobs:
             --alluredir=allure-results \
             --clean-alluredir
 
-
-      - name: Generate Allure HTML report
+      - name: Generate Allure Report
         if: always()
         run: |
           if [ -d allure-results ]; then
             allure generate allure-results -o allure-report
           fi
 
-      - name: Upload test reports
+      - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-api-reports
+          name: pytest-report
           path: |
             reports/
             allure-results/
