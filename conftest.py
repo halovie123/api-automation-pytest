@@ -1,26 +1,41 @@
 
+import json
+from pathlib import Path
+
 import pytest
 import requests
 
-from settings import BASE_URL, USERNAME, PASSWORD
+from api.booking_client import BookingClient
+from config.settings import (
+    BASE_URL,
+    TIMEOUT,
+    USERNAME,
+    PASSWORD
+)
 
 
-# Fixture 1: Tạo HTTP session
+# Fixture 1: HTTP session
 @pytest.fixture(scope="session")
 def api():
-    s = requests.Session()
+    session = requests.Session()
 
-    s.headers.update({
+    session.headers.update({
         "Content-Type": "application/json",
         "Accept": "application/json"
     })
 
-    yield s
+    yield session
 
-    s.close()
+    session.close()
 
 
-# Fixture 2: Tạo token
+# Fixture 2: BookingClient
+@pytest.fixture(scope="session")
+def booking_client(api):
+    return BookingClient(api)
+
+
+# Fixture 3: Token
 @pytest.fixture(scope="session")
 def token(api):
     response = api.post(
@@ -29,7 +44,7 @@ def token(api):
             "username": USERNAME,
             "password": PASSWORD
         },
-        timeout=10
+        timeout=TIMEOUT
     )
 
     response.raise_for_status()
@@ -42,52 +57,50 @@ def token(api):
     return token_value
 
 
-# Fixture 3: Tạo và dọn booking
+# Fixture 4: Dữ liệu booking
 @pytest.fixture
-def booking(api, token):
-    payload = {
-        "firstname": "Minh",
-        "lastname": "Tran",
-        "totalprice": 150,
-        "depositpaid": True,
-        "bookingdates": {
-            "checkin": "2026-11-01",
-            "checkout": "2026-11-03"
-        },
-        "additionalneeds": "Breakfast"
-    }
-
-    # SETUP: Tạo booking mới
-    response = api.post(
-        f"{BASE_URL}/booking",
-        json=payload,
-        timeout=10
+def booking_payload():
+    data_file = (
+        Path(__file__).resolve().parent
+        / "data"
+        / "bookings.json"
     )
+
+    with data_file.open(encoding="utf-8") as f:
+        data = json.load(f)
+
+    return data["valid_booking"]
+
+
+# Fixture 5: Tạo và dọn booking
+@pytest.fixture
+def booking(booking_client, booking_payload):
+    payload = booking_payload
+
+    # SETUP
+    response = booking_client.create(payload)
 
     assert response.status_code == 200, response.text
 
     booking_id = response.json()["bookingid"]
 
-    yield booking_id, payload
+    try:
+        yield booking_id, payload
 
-    # TEARDOWN: Xóa booking nếu vẫn tồn tại
-    check = api.get(
-        f"{BASE_URL}/booking/{booking_id}",
-        timeout=10
-    )
+    finally:
+        # TEARDOWN
+        check = booking_client.get(booking_id)
 
-    if check.status_code == 404:
-        return
+        if check.status_code == 200:
+            cleanup = booking_client.delete(booking_id)
 
-    assert check.status_code == 200, check.text
+            assert cleanup.status_code == 201, (
+                f"Cleanup failed: "
+                f"{cleanup.status_code} {cleanup.text}"
+            )
 
-    cleanup = api.delete(
-        f"{BASE_URL}/booking/{booking_id}",
-        auth=(USERNAME, PASSWORD),
-        timeout=10
-    )
-
-    assert cleanup.status_code == 201, (
-        f"Cleanup failed: {cleanup.status_code} "
-        f"{cleanup.text}"
-    )
+        elif check.status_code != 404:
+            raise AssertionError(
+                f"Unexpected cleanup status: "
+                f"{check.status_code}"
+            )

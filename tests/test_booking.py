@@ -94,17 +94,17 @@ def test_create_booking_returns_valid_id(booking):
 
 # TC08 - GET booking vừa tạo
 @pytest.mark.smoke
-def test_get_booking_returns_created_data(api, booking):
+def test_get_booking_returns_created_data(
+    booking_client, booking
+):
     booking_id, payload = booking
 
-    r = api.get(
-        f"{BASE_URL}/booking/{booking_id}",
-        timeout=10
-    )
+    r = booking_client.get(booking_id)
 
     assert r.status_code == 200
 
     body = r.json()
+
     assert body["firstname"] == payload["firstname"]
     assert body["lastname"] == payload["lastname"]
     assert body["totalprice"] == payload["totalprice"]

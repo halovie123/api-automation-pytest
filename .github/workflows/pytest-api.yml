@@ -38,12 +38,16 @@ jobs:
         env:
           RB_USERNAME: admin
           RB_PASSWORD: ${{ secrets.RB_PASSWORD }}
+        
         run: |
           mkdir -p reports
           python -m pytest -v \
+            --html=reports/report.html \
+            --self-contained-html \
             --junitxml=reports/report.xml \
             --alluredir=allure-results \
             --clean-alluredir
+
 
       - name: Generate Allure HTML report
         if: always()
@@ -58,7 +62,7 @@ jobs:
         with:
           name: pytest-api-reports
           path: |
-            reports/report.xml
+            reports/
             allure-results/
             allure-report/
           if-no-files-found: warn
